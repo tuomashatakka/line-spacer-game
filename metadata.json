@@ -1,0 +1,7 @@
+{
+  "name": "3D TRON",
+  "description": "A Tron-like area capture game set in 3D space. Fly your ship, leave a trail, and encircle territory to claim it. Built with React and Three.js.",
+  "requestFramePermissions": [],
+  "prompt": "",
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
