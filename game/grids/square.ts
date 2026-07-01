@@ -92,6 +92,9 @@ export function createSquareGrid(level: Level): GridData {
     }
     data.shellGeometries.reverse()
     
+    // Ensure all diagonal edges and face edges are fully connected in adjacency and edges lists
+    ensureAllMeshEdgesAreConnected(data, edgeSet);
+
     const pointsGeometry = new THREE.BufferGeometry().setFromPoints(data.allShellPoints)
     pointsGeometry.computeBoundingSphere();
     const pointsMaterial = new THREE.PointsMaterial({ color: 0x94a3b8, size: 0.3, sizeAttenuation: true, transparent: true, opacity: 0.8 })
@@ -105,3 +108,30 @@ export function createSquareGrid(level: Level): GridData {
         ...data,
     }
 }
+
+function ensureAllMeshEdgesAreConnected(data: any, edgeSet: Set<string>) {
+    for (const face of data.faces.values()) {
+        const verts = face.vertices;
+        const len = verts.length;
+        for (let i = 0; i < len; i++) {
+            const k1 = verts[i];
+            const k2 = verts[(i + 1) % len];
+            const edgeKey = k1 < k2 ? `${k1}|${k2}` : `${k2}|${k1}`;
+            
+            if (!edgeSet.has(edgeKey)) {
+                edgeSet.add(edgeKey);
+                data.edges.push({ k1, k2 });
+            }
+            if (!data.adjacency.get(k1).includes(k2)) {
+                data.adjacency.get(k1).push(k2);
+            }
+            if (!data.adjacency.get(k2).includes(k1)) {
+                data.adjacency.get(k2).push(k1);
+            }
+        }
+    }
+    for (const [key, neighbors] of data.adjacency.entries()) {
+        data.adjacency.set(key, Array.from(new Set(neighbors)));
+    }
+}
+

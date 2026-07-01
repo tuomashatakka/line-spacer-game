@@ -11,6 +11,7 @@ import { SquareLevel } from './game/levels/SquareLevel'
 import { TriangleLevel } from './game/levels/TriangleLevel'
 import { TetrahedronLevel } from './game/levels/TetrahedronLevel'
 import { OctahedronLevel } from './game/levels/OctahedronLevel'
+import { TrianglePyramidLevel } from './game/levels/TrianglePyramidLevel'
 import { THEMES, EFFECTS } from './game/theme'
 import type { ThemeType, EffectType } from './game/theme'
 
@@ -81,7 +82,7 @@ const scoreUIMap: Record<string, { icon: React.ReactNode, label: string }> = {
 
 const scoreOrder = ['pyramids', 'tetrahedra', 'triangles', 'lines', 'moves']
 
-export type GridType = 'icosahedron' | 'tetrahedron' | 'cube' | 'square' | 'triangle' | 'octahedron'
+export type GridType = 'icosahedron' | 'tetrahedron' | 'cube' | 'square' | 'triangle' | 'octahedron' | 'triangle_pyramid'
 export type GameMode = 'pvp' | 'pva' // Player vs Player, Player vs AI
 
 export interface DebugInfo {
@@ -102,6 +103,7 @@ const levelMap: Record<GridType, Level> = {
     square: new SquareLevel(),
     triangle: new TriangleLevel(),
     octahedron: new OctahedronLevel(),
+    triangle_pyramid: new TrianglePyramidLevel(),
 }
 
 

@@ -1,7 +1,7 @@
 
 import * as THREE from 'three'
 import { Level } from './Level'
-import { createIcosahedralPyramidGrid } from '../grids/polyhedral'
+import { createIcosahedronTriangleGrid } from '../grids/polyhedral'
 import type { GridData } from '../engine/GameLogicController'
 import * as C from '../config'
 
@@ -10,7 +10,7 @@ export class IcosahedronLevel extends Level {
     
     public gridType = 'icosahedron' as const
     public cameraType = '3D' as const
-    public gridSubdivisions = 1 // Higher subdivision for more pyramids
+    public gridSubdivisions = 1 // Higher subdivision for more triangles
 
     constructor() {
         super();
@@ -32,6 +32,6 @@ export class IcosahedronLevel extends Level {
 
 
     public getGridData(): GridData {
-        return createIcosahedralPyramidGrid(this)
+        return createIcosahedronTriangleGrid(this)
     }
 }

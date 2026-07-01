@@ -123,6 +123,9 @@ export function createCubicGrid(level: Level): GridData {
     data.shellGeometries.reverse()
 
 
+    // Ensure all diagonal edges and face/tetra edges are fully connected in adjacency and edges lists
+    ensureAllMeshEdgesAreConnected(data, edgeSet);
+
     const pointsGeometry = new THREE.BufferGeometry().setFromPoints(data.allShellPoints)
     pointsGeometry.computeBoundingSphere();
     const pointsMaterial = new THREE.PointsMaterial({ color: 0x94a3b8, size: 0.2, sizeAttenuation: true, transparent: true, opacity: 0.7 })
@@ -168,8 +171,9 @@ export function createPyramidGrid(level: Level): GridData {
                 const key = `c_${x}_${y}_${z}`;
                 const pos = new THREE.Vector3(x + 0.5, y + 0.5, z + 0.5).multiplyScalar(spacing);
                 data.vertices.set(key, pos);
-                data.adjacency.set(key, []); // Not part of playable grid
-                data.vertexToFaces.set(key, []); // Not part of playable grid
+                data.adjacency.set(key, []);
+                data.vertexToFaces.set(key, []);
+                data.allShellPoints.push(pos); // Make centers visible & playable!
             }
         }
     }
@@ -263,6 +267,9 @@ export function createPyramidGrid(level: Level): GridData {
     data.shellGeometries.reverse();
 
 
+    // Ensure all diagonal edges and face/tetra edges are fully connected in adjacency and edges lists
+    ensureAllMeshEdgesAreConnected(data, edgeSet);
+
     const pointsGeometry = new THREE.BufferGeometry().setFromPoints(data.allShellPoints);
     pointsGeometry.computeBoundingSphere();
     const pointsMaterial = new THREE.PointsMaterial({ color: 0x94a3b8, size: 0.2, sizeAttenuation: true, transparent: true, opacity: 0.7 });
@@ -272,5 +279,56 @@ export function createPyramidGrid(level: Level): GridData {
         is2D: false,
         gridPoints: new THREE.Points(pointsGeometry, pointsMaterial),
         ...data
+    }
+}
+
+function ensureAllMeshEdgesAreConnected(data: any, edgeSet: Set<string>) {
+    // 1. Ensure all face edges are in adjacency and edges
+    for (const face of data.faces.values()) {
+        const verts = face.vertices;
+        const len = verts.length;
+        for (let i = 0; i < len; i++) {
+            const k1 = verts[i];
+            const k2 = verts[(i + 1) % len];
+            const edgeKey = k1 < k2 ? `${k1}|${k2}` : `${k2}|${k1}`;
+            
+            if (!edgeSet.has(edgeKey)) {
+                edgeSet.add(edgeKey);
+                data.edges.push({ k1, k2 });
+            }
+            if (!data.adjacency.get(k1).includes(k2)) {
+                data.adjacency.get(k1).push(k2);
+            }
+            if (!data.adjacency.get(k2).includes(k1)) {
+                data.adjacency.get(k2).push(k1);
+            }
+        }
+    }
+
+    // 2. Ensure all tetrahedra edges are in adjacency and edges
+    for (const tetra of data.tetrahedra.values()) {
+        const [vA, vB, vC, vD] = tetra.key.split('|');
+        const pairs = [
+            [vA, vB], [vA, vC], [vA, vD],
+            [vB, vC], [vB, vD], [vC, vD]
+        ];
+        pairs.forEach(([k1, k2]) => {
+            const edgeKey = k1 < k2 ? `${k1}|${k2}` : `${k2}|${k1}`;
+            if (!edgeSet.has(edgeKey)) {
+                edgeSet.add(edgeKey);
+                data.edges.push({ k1, k2 });
+            }
+            if (!data.adjacency.get(k1).includes(k2)) {
+                data.adjacency.get(k1).push(k2);
+            }
+            if (!data.adjacency.get(k2).includes(k1)) {
+                data.adjacency.get(k2).push(k1);
+            }
+        });
+    }
+
+    // 3. Clean up duplicates in adjacency
+    for (const [key, neighbors] of data.adjacency.entries()) {
+        data.adjacency.set(key, Array.from(new Set(neighbors)));
     }
 }

@@ -526,22 +526,38 @@ export class GameLogicController {
                  }
              })
         } else { // 3D
-            for (const faceKey of newlyClaimedFaces) {
-                const tetras = this.gridData.faceToTetras.get(faceKey) || []
-                for (const tetraKey of tetras) {
-                    if (player.claimedTetras.has(tetraKey)) continue
-                    const tetra = this.gridData.tetrahedra.get(tetraKey)!
-                    if (tetra.faces.every(fKey => player.claimedFaces.has(fKey))) {
-                        player.claimedTetras.add(tetraKey)
-                        const allVerts = [...new Set(tetra.faces.flatMap(f => this.gridData.faces.get(f)!.vertices))]
-                        const positions = allVerts.map(k=>this.gridData.vertices.get(k)!)
-                        
-                        if (positions.length === 4) {
-                            const [v1,v2,v3,v4] = positions
-                            focusPoints.push(v1,v2,v3,v4)
-                            const tetraGeom = new THREE.BufferGeometry().setFromPoints([v1,v2,v3, v1,v3,v4, v1,v4,v2, v2,v4,v3])
-                            tetraGeom.computeVertexNormals()
-                            newSolidGeometries.push(tetraGeom)
+            if (this.gridData.tetrahedra.size === 0) {
+                // 3D level made of 3D triangles (like surface Icosahedron) - claim faces directly!
+                newlyClaimedFaces.forEach(faceKey => {
+                    const face = this.gridData.faces.get(faceKey)!
+                    const points = face.vertices.map(v => this.gridData.vertices.get(v)!)
+                    if (points.length === 3) {
+                        const [v1, v2, v3] = points
+                        focusPoints.push(v1, v2, v3)
+                        // Render with both orientations to prevent backface culling issues in 3D
+                        const faceGeom = new THREE.BufferGeometry().setFromPoints([v1, v2, v3, v1, v3, v2])
+                        faceGeom.computeVertexNormals()
+                        newSolidGeometries.push(faceGeom)
+                    }
+                })
+            } else {
+                for (const faceKey of newlyClaimedFaces) {
+                    const tetras = this.gridData.faceToTetras.get(faceKey) || []
+                    for (const tetraKey of tetras) {
+                        if (player.claimedTetras.has(tetraKey)) continue
+                        const tetra = this.gridData.tetrahedra.get(tetraKey)!
+                        if (tetra.faces.every(fKey => player.claimedFaces.has(fKey))) {
+                            player.claimedTetras.add(tetraKey)
+                            const allVerts = [...new Set(tetra.faces.flatMap(f => this.gridData.faces.get(f)!.vertices))]
+                            const positions = allVerts.map(k=>this.gridData.vertices.get(k)!)
+                            
+                            if (positions.length === 4) {
+                                const [v1,v2,v3,v4] = positions
+                                focusPoints.push(v1,v2,v3,v4)
+                                const tetraGeom = new THREE.BufferGeometry().setFromPoints([v1,v2,v3, v1,v3,v4, v1,v4,v2, v2,v4,v3])
+                                tetraGeom.computeVertexNormals()
+                                newSolidGeometries.push(tetraGeom)
+                            }
                         }
                     }
                 }
@@ -681,7 +697,7 @@ export class GameLogicController {
                 const movePos3D = this.gridData.vertices.get(moveKey)!;
                 const movePosNDC = movePos3D.clone().project(camera);
                 
-                if (movePosNDC.z > 1) return; // Behind camera
+                if (!this.gridData.is2D && movePosNDC.z > 1) return; // Behind camera
                 
                 const dist = screenTapPos.distanceTo(new THREE.Vector2(movePosNDC.x, movePosNDC.y));
                 if (dist < minDistance) {
@@ -704,7 +720,7 @@ export class GameLogicController {
                         const movePos3D = this.gridData.vertices.get(moveKey)!;
                         const movePosNDC = movePos3D.clone().project(camera);
                         
-                        if (movePosNDC.z > 1) return; // Move is behind the camera
+                        if (!this.gridData.is2D && movePosNDC.z > 1) return; // Move is behind the camera
             
                         const moveDirection2D = new THREE.Vector2(movePosNDC.x, movePosNDC.y).sub(new THREE.Vector2(playerPosNDC.x, playerPosNDC.y));
                         if (moveDirection2D.lengthSq() === 0) return;

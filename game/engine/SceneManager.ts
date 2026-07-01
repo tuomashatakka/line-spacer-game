@@ -136,7 +136,7 @@ export class SceneManager {
 
     public init(camera: THREE.Camera, gridBoundingSphere: THREE.Sphere) {
         this.renderer.setSize(this.mount.clientWidth, this.mount.clientHeight)
-        this.renderer.setPixelRatio(window.devicePixelRatio)
+        this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
         this.renderer.outputColorSpace = THREE.SRGBColorSpace
         this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
         this.renderer.toneMappingExposure = 1.25;
@@ -170,7 +170,9 @@ export class SceneManager {
         this.composer.addPass(renderPass)
 
         // strength, radius, threshold
-        this.bloomPass = new UnrealBloomPass(new THREE.Vector2(this.mount.clientWidth, this.mount.clientHeight), 1.2, 0.8, 0.1)
+        const size = new THREE.Vector2()
+        this.renderer.getSize(size)
+        this.bloomPass = new UnrealBloomPass(size, 1.2, 0.8, 0.1)
         this.composer.addPass(this.bloomPass)
 
         this.crtPass = new ShaderPass(CRTShader)
@@ -248,8 +250,14 @@ export class SceneManager {
     
 
     public onWindowResize = () => {
-        this.renderer.setSize(this.mount.clientWidth, this.mount.clientHeight)
-        this.composer.setSize(this.mount.clientWidth, this.mount.clientHeight)
+        const w = this.mount.clientWidth;
+        const h = this.mount.clientHeight;
+        this.renderer.setSize(w, h)
+        this.composer.setSize(w, h)
+        this.composer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
+        if (this.bloomPass && this.bloomPass.setSize) {
+            this.bloomPass.setSize(w, h)
+        }
     }
 
     public getScene = () => this.scene

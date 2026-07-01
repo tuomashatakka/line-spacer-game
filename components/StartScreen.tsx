@@ -50,6 +50,16 @@ const TriangleGridIcon = () => (
     </svg>
 )
 
+const TrianglePyramidIcon = () => (
+    <svg viewBox="0 0 24 24" className="w-12 h-12 mx-auto mb-2" stroke="currentColor" fill="none" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M12 2L2 18h20L12 2z" />
+        <path d="M12 2l4 16" />
+        <path d="M12 2l-4 16" />
+        <path d="M12 2v16" />
+        <path d="M2 18l10-4 10 4" />
+    </svg>
+)
+
 interface StartScreenProps {
   onStartGame: (gridType: GridType, mode: GameMode) => void
 }
@@ -133,10 +143,13 @@ const StartScreen: React.FC<StartScreenProps> = ({ onStartGame }) => {
       
       <div className="flex flex-wrap justify-center gap-8 mt-4 px-4">
         <button onClick={() => onStartGame('icosahedron', gameMode)} className={buttonClasses}>
-          <div className="sci-fi-button-content"><IcosahedronIcon /><span className="font-bold text-lg tracking-wider uppercase">Icosahedron</span><p className="text-xs text-blue-400 mt-1">3D - Volumetric</p></div>
+          <div className="sci-fi-button-content"><IcosahedronIcon /><span className="font-bold text-lg tracking-wider uppercase">Icosahedron</span><p className="text-xs text-blue-400 mt-1">3D - Triangles</p></div>
         </button>
         <button onClick={() => onStartGame('tetrahedron', gameMode)} className={buttonClasses}>
           <div className="sci-fi-button-content"><TetrahedronIcon /><span className="font-bold text-lg tracking-wider uppercase">Tetrahedron</span><p className="text-xs text-blue-400 mt-1">3D - Simple</p></div>
+        </button>
+        <button onClick={() => onStartGame('triangle_pyramid', gameMode)} className={buttonClasses}>
+          <div className="sci-fi-button-content"><TrianglePyramidIcon /><span className="font-bold text-lg tracking-wider uppercase">Tri Pyramid</span><p className="text-xs text-blue-400 mt-1">3D - Pyramidal</p></div>
         </button>
         <button onClick={() => onStartGame('cube', gameMode)} className={buttonClasses}>
           <div className="sci-fi-button-content"><CubeIcon /><span className="font-bold text-lg tracking-wider uppercase">Cube</span><p className="text-xs text-blue-400 mt-1">3D - Structured</p></div>

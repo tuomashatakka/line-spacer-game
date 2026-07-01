@@ -110,6 +110,9 @@ export function createPolyhedralGrid(baseGeometry: THREE.BufferGeometry, level: 
     indexedGeom.dispose()
     baseGeometry.dispose()
     
+    // Ensure all diagonal edges and face/tetra edges are fully connected in adjacency and edges lists
+    ensureAllMeshEdgesAreConnected(data, edgeSet);
+
     const pointsGeometry = new THREE.BufferGeometry().setFromPoints(data.allShellPoints)
     pointsGeometry.computeBoundingSphere();
     const pointsMaterial = new THREE.PointsMaterial({ color: 0x94a3b8, size: 0.15, sizeAttenuation: true, transparent: true, opacity: 0.7 })
@@ -146,8 +149,13 @@ export function createIcosahedralPyramidGrid(level: Level): GridData {
         data.vertexToFaces.set(key, []);
         data.allShellPoints.push(pos);
     }
-    // Add center vertex (non-playable)
-    data.vertices.set(centerKey, new THREE.Vector3(0, 0, 0));
+    // Add center vertex (playable)
+    const centerPos = new THREE.Vector3(0, 0, 0);
+    data.vertices.set(centerKey, centerPos);
+    data.adjacency.set(centerKey, []);
+    data.vertexToFaces.set(centerKey, []);
+    data.allShellPoints.push(centerPos);
+
 
 
     // 2. Build surface adjacency, faces, and volumetric tetrahedra
@@ -212,6 +220,9 @@ export function createIcosahedralPyramidGrid(level: Level): GridData {
     indexedGeom.dispose();
     baseGeometry.dispose();
 
+    // Ensure all diagonal edges and face/tetra edges are fully connected in adjacency and edges lists
+    ensureAllMeshEdgesAreConnected(data, edgeSet);
+
     const pointsGeometry = new THREE.BufferGeometry().setFromPoints(data.allShellPoints);
     pointsGeometry.computeBoundingSphere();
     const pointsMaterial = new THREE.PointsMaterial({ color: 0x94a3b8, size: 0.15, sizeAttenuation: true, transparent: true, opacity: 0.7 });
@@ -223,3 +234,130 @@ export function createIcosahedralPyramidGrid(level: Level): GridData {
         ...data,
     };
 }
+
+
+export function createIcosahedronTriangleGrid(level: Level): GridData {
+    const data: GridBuildingData = {
+        vertices: new Map(), adjacency: new Map(), faces: new Map(),
+        vertexToFaces: new Map(), tetrahedra: new Map(), faceToTetras: new Map(),
+        shellGeometries: [], allShellPoints: [], edges: [],
+    };
+
+    const baseGeometry = new THREE.IcosahedronGeometry(level.gridSize, level.gridSubdivisions);
+    const indexedGeom = mergeVertices(baseGeometry);
+    const baseVertices = indexedGeom.getAttribute('position');
+    const baseIndices = indexedGeom.index!.array;
+    const edgeSet = new Set<string>();
+
+    // 1. Generate surface vertices
+    for (let i = 0; i < baseVertices.count; i++) {
+        const key = `0-${i}`; // '0' for the only shell
+        const pos = new THREE.Vector3().fromBufferAttribute(baseVertices, i);
+        data.vertices.set(key, pos);
+        data.adjacency.set(key, []);
+        data.vertexToFaces.set(key, []);
+        data.allShellPoints.push(pos);
+    }
+
+    // 2. Build surface adjacency and faces (no volumetric tetrahedra!)
+    const surfaceLines: THREE.Vector3[] = [];
+    for (let i = 0; i < baseIndices.length; i += 3) {
+        const i1 = baseIndices[i], i2 = baseIndices[i+1], i3 = baseIndices[i+2];
+        const k1 = `0-${i1}`, k2 = `0-${i2}`, k3 = `0-${i3}`;
+        const v1 = data.vertices.get(k1)!, v2 = data.vertices.get(k2)!, v3 = data.vertices.get(k3)!;
+
+        // Adjacency and Edges
+        const currentEdges = [{ka:k1,kb:k2,va:v1,vb:v2}, {ka:k2,kb:k3,va:v2,vb:v3}, {ka:k3,kb:k1,va:v3,vb:v1}];
+        currentEdges.forEach(({ka, kb, va, vb}) => {
+            if (!data.adjacency.get(ka)!.includes(kb)) data.adjacency.get(ka)!.push(kb);
+            if (!data.adjacency.get(kb)!.includes(ka)) data.adjacency.get(kb)!.push(ka);
+            const edgeKey = getEdgeKey(ka, kb);
+            if (!edgeSet.has(edgeKey)) {
+                edgeSet.add(edgeKey);
+                data.edges.push({ k1: ka, k2: kb });
+                surfaceLines.push(va, vb);
+            }
+        });
+
+        // Surface Face
+        const faceKey = getFaceKey(k1, k2, k3);
+        if (!data.faces.has(faceKey)) {
+            const faceVertices = [k1, k2, k3];
+            data.faces.set(faceKey, { key: faceKey, vertices: faceVertices });
+            faceVertices.forEach(vk => data.vertexToFaces.get(vk)!.push(faceKey));
+        }
+    }
+
+    const shellGeom = new THREE.BufferGeometry().setFromPoints(surfaceLines);
+    data.shellGeometries.push(shellGeom);
+
+    indexedGeom.dispose();
+    baseGeometry.dispose();
+
+    // Ensure all diagonal edges and face/tetra edges are fully connected in adjacency and edges lists
+    ensureAllMeshEdgesAreConnected(data, edgeSet);
+
+    const pointsGeometry = new THREE.BufferGeometry().setFromPoints(data.allShellPoints);
+    pointsGeometry.computeBoundingSphere();
+    const pointsMaterial = new THREE.PointsMaterial({ color: 0x94a3b8, size: 0.15, sizeAttenuation: true, transparent: true, opacity: 0.7 });
+
+    return {
+        gridType: level.gridType,
+        is2D: false,
+        gridPoints: new THREE.Points(pointsGeometry, pointsMaterial),
+        ...data,
+    };
+}
+
+function ensureAllMeshEdgesAreConnected(data: any, edgeSet: Set<string>) {
+    // 1. Ensure all face edges are in adjacency and edges
+    for (const face of data.faces.values()) {
+        const verts = face.vertices;
+        const len = verts.length;
+        for (let i = 0; i < len; i++) {
+            const k1 = verts[i];
+            const k2 = verts[(i + 1) % len];
+            const edgeKey = k1 < k2 ? `${k1}|${k2}` : `${k2}|${k1}`;
+            
+            if (!edgeSet.has(edgeKey)) {
+                edgeSet.add(edgeKey);
+                data.edges.push({ k1, k2 });
+            }
+            if (!data.adjacency.get(k1).includes(k2)) {
+                data.adjacency.get(k1).push(k2);
+            }
+            if (!data.adjacency.get(k2).includes(k1)) {
+                data.adjacency.get(k2).push(k1);
+            }
+        }
+    }
+
+    // 2. Ensure all tetrahedra edges are in adjacency and edges
+    for (const tetra of data.tetrahedra.values()) {
+        const [vA, vB, vC, vD] = tetra.key.split('|');
+        const pairs = [
+            [vA, vB], [vA, vC], [vA, vD],
+            [vB, vC], [vB, vD], [vC, vD]
+        ];
+        pairs.forEach(([k1, k2]) => {
+            const edgeKey = k1 < k2 ? `${k1}|${k2}` : `${k2}|${k1}`;
+            if (!edgeSet.has(edgeKey)) {
+                edgeSet.add(edgeKey);
+                data.edges.push({ k1, k2 });
+            }
+            if (!data.adjacency.get(k1).includes(k2)) {
+                data.adjacency.get(k1).push(k2);
+            }
+            if (!data.adjacency.get(k2).includes(k1)) {
+                data.adjacency.get(k2).push(k1);
+            }
+        });
+    }
+
+    // 3. Clean up duplicates in adjacency
+    for (const [key, neighbors] of data.adjacency.entries()) {
+        data.adjacency.set(key, Array.from(new Set(neighbors)));
+    }
+}
+
+
