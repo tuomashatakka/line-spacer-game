@@ -1,4 +1,3 @@
-
 import * as THREE from 'three'
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js'
 
@@ -21,11 +20,26 @@ interface ExplosionParticleSystem {
     initialLifetime: number;
 }
 
+interface Shockwave {
+    mesh: THREE.Mesh;
+    maxScale: number;
+    lifetime: number;
+    initialLifetime: number;
+}
+
+interface FillingFace {
+    mesh: THREE.Mesh;
+    lifetime: number;
+    initialLifetime: number;
+}
+
 export class VFXManager {
     
     private shatterParticles: ShatterParticle[] = [];
     private moveRings: THREE.Mesh[] = [];
     private captureExplosions: ExplosionParticleSystem[] = [];
+    private shockwaves: Shockwave[] = [];
+    private fillingFaces: FillingFace[] = [];
 
     private shatterMaterial: THREE.MeshStandardMaterial;
     public isShattering = false;
@@ -43,18 +57,74 @@ export class VFXManager {
 
 
     public triggerMoveVFX(position: THREE.Vector3, color: THREE.Color) {
-        const ringGeom = new THREE.RingGeometry(0.5, 0.6, 32);
-        const ringMat = new THREE.MeshBasicMaterial({ color, side: THREE.DoubleSide, transparent: true, opacity: 0.8 });
-        const ring = new THREE.Mesh(ringGeom, ringMat);
-        
-        // Orient the ring to face away from the grid center, approximating facing the camera
         const normal = position.clone().normalize();
-        ring.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), normal);
-        ring.position.copy(position);
 
-        ring.userData.lifetime = 1.0;
-        this.moveRings.push(ring);
-        this.parentGroup.add(ring);
+        // 1. Double Concentric Rings!
+        const ringGeom1 = new THREE.RingGeometry(0.4, 0.48, 32);
+        const ringMat1 = new THREE.MeshBasicMaterial({ color, side: THREE.DoubleSide, transparent: true, opacity: 0.9, blending: THREE.AdditiveBlending });
+        const ring1 = new THREE.Mesh(ringGeom1, ringMat1);
+        ring1.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), normal);
+        ring1.position.copy(position);
+        ring1.userData.lifetime = 0.8;
+        ring1.userData.speed = 8.0;
+        this.moveRings.push(ring1);
+        this.parentGroup.add(ring1);
+
+        const ringGeom2 = new THREE.RingGeometry(0.2, 0.25, 32);
+        const ringMat2 = new THREE.MeshBasicMaterial({ color, side: THREE.DoubleSide, transparent: true, opacity: 0.6, blending: THREE.AdditiveBlending });
+        const ring2 = new THREE.Mesh(ringGeom2, ringMat2);
+        ring2.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), normal);
+        ring2.position.copy(position);
+        ring2.userData.lifetime = 1.2;
+        ring2.userData.speed = 4.0;
+        this.moveRings.push(ring2);
+        this.parentGroup.add(ring2);
+
+        // 2. Sparkling burst particles!
+        const sparkCount = 10;
+        const positions = new Float32Array(sparkCount * 3);
+        const velocities: THREE.Vector3[] = [];
+        for (let i = 0; i < sparkCount; i++) {
+            positions[i * 3] = position.x;
+            positions[i * 3 + 1] = position.y;
+            positions[i * 3 + 2] = position.z;
+
+            // Shoot out randomly on the plane of the normal
+            const tangent = new THREE.Vector3(1, 0, 0).cross(normal);
+            if (tangent.lengthSq() < 0.01) tangent.set(0, 1, 0).cross(normal);
+            tangent.normalize();
+            const bitangent = normal.clone().cross(tangent).normalize();
+            
+            const angle = Math.random() * Math.PI * 2;
+            const speed = Math.random() * 5 + 3;
+            const vel = tangent.clone().multiplyScalar(Math.cos(angle)).add(bitangent.clone().multiplyScalar(Math.sin(angle))).multiplyScalar(speed);
+            vel.add(normal.clone().multiplyScalar(Math.random() * 2)); // slight push outward
+            velocities.push(vel);
+        }
+
+        const sparkGeom = new THREE.BufferGeometry();
+        sparkGeom.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+        const sparkMat = new THREE.PointsMaterial({
+            size: 0.25,
+            color: color,
+            transparent: true,
+            opacity: 1.0,
+            blending: THREE.AdditiveBlending,
+            depthWrite: false,
+        });
+        const sparkPoints = new THREE.Points(sparkGeom, sparkMat);
+        this.parentGroup.add(sparkPoints);
+
+        const sparkLifetime = 0.8;
+        this.captureExplosions.push({
+            points: sparkPoints,
+            geometry: sparkGeom,
+            material: sparkMat,
+            positions,
+            velocities,
+            lifetime: sparkLifetime,
+            initialLifetime: sparkLifetime,
+        });
     }
 
 
@@ -111,14 +181,56 @@ export class VFXManager {
     }
 
 
+    public triggerFillingAnimation(geometries: THREE.BufferGeometry[], playerColor: THREE.Color) {
+        geometries.forEach(geom => {
+            // Find geometry center so we can scale from center
+            const center = new THREE.Vector3();
+            const posAttr = geom.getAttribute('position');
+            if (!posAttr) return;
+
+            for (let i = 0; i < posAttr.count; i++) {
+                center.add(new THREE.Vector3().fromBufferAttribute(posAttr, i));
+            }
+            center.divideScalar(posAttr.count);
+
+            const localGeom = geom.clone();
+            localGeom.translate(-center.x, -center.y, -center.z);
+
+            const fillMat = new THREE.MeshStandardMaterial({
+                color: playerColor,
+                emissive: playerColor,
+                emissiveIntensity: 3.5, // Bright flash!
+                transparent: true,
+                opacity: 0.95,
+                side: THREE.DoubleSide,
+                metalness: 0.2,
+                roughness: 0.2,
+            });
+
+            const mesh = new THREE.Mesh(localGeom, fillMat);
+            mesh.position.copy(center);
+            mesh.scale.set(0.01, 0.01, 0.01);
+
+            this.parentGroup.add(mesh);
+
+            const lifetime = 0.9; // Smooth spring over 0.9 seconds
+            this.fillingFaces.push({
+                mesh,
+                lifetime,
+                initialLifetime: lifetime,
+            });
+        });
+    }
+
+
     public triggerCaptureExplosion(center: THREE.Vector3, baseColor: THREE.Color) {
-        const particleCount = 200;
+        // 1. Spawning glowing explosion particles
+        const particleCount = 220;
         const positions = new Float32Array(particleCount * 3);
         const colors = new Float32Array(particleCount * 3);
         const velocities: THREE.Vector3[] = [];
 
         for (let i = 0; i < particleCount; i++) {
-            // Start very close to center
             const offset = new THREE.Vector3(
                 (Math.random() - 0.5) * 0.1,
                 (Math.random() - 0.5) * 0.1,
@@ -131,29 +243,25 @@ export class VFXManager {
             // Explode spherically
             const theta = Math.random() * Math.PI * 2;
             const phi = Math.acos((Math.random() * 2) - 1);
-            const speed = Math.random() * 8 + 4; // speed range 4 - 12
+            const speed = Math.random() * 11 + 5; // speed range 5 - 16 (faster!)
             const velocity = new THREE.Vector3(
                 Math.sin(phi) * Math.cos(theta),
                 Math.sin(phi) * Math.sin(theta),
                 Math.cos(phi)
             ).multiplyScalar(speed);
 
-            // Add a slight upward burst force
-            velocity.y += Math.random() * 3 + 1;
+            velocity.y += Math.random() * 4 + 1.5; // slight upward burst force
             velocities.push(velocity);
 
             // Set beautiful glowing particle color
             const pColor = baseColor.clone();
             const rand = Math.random();
-            if (rand > 0.8) {
-                // Bright spark (white)
-                pColor.lerp(new THREE.Color(0xffffff), 0.95);
+            if (rand > 0.75) {
+                pColor.lerp(new THREE.Color(0xffffff), 0.95); // White hot core
             } else if (rand > 0.4) {
-                // Mid-bright accent
-                pColor.lerp(new THREE.Color(0xffffff), 0.4);
+                pColor.lerp(new THREE.Color(0xffffff), 0.4); // Bright spark
             } else {
-                // Deeper player hue
-                pColor.multiplyScalar(Math.random() * 0.2 + 0.8);
+                pColor.multiplyScalar(Math.random() * 0.3 + 0.85); // Pure saturated hue
             }
 
             colors[i * 3] = pColor.r;
@@ -166,7 +274,7 @@ export class VFXManager {
         geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
 
         const material = new THREE.PointsMaterial({
-            size: 0.35,
+            size: 0.4,
             sizeAttenuation: true,
             transparent: true,
             opacity: 1.0,
@@ -178,7 +286,7 @@ export class VFXManager {
         const points = new THREE.Points(geometry, material);
         this.parentGroup.add(points);
 
-        const lifetime = Math.random() * 0.5 + 1.2; // 1.2 to 1.7 seconds
+        const lifetime = Math.random() * 0.4 + 1.3;
         this.captureExplosions.push({
             points,
             geometry,
@@ -187,6 +295,31 @@ export class VFXManager {
             velocities,
             lifetime,
             initialLifetime: lifetime,
+        });
+
+        // 2. Glowing Expandable Ring/Shockwave!
+        const shockGeom = new THREE.RingGeometry(0.1, 0.15, 64);
+        const shockMat = new THREE.MeshBasicMaterial({
+            color: baseColor,
+            side: THREE.DoubleSide,
+            transparent: true,
+            opacity: 1.0,
+            blending: THREE.AdditiveBlending,
+            depthWrite: false,
+        });
+        const shockMesh = new THREE.Mesh(shockGeom, shockMat);
+        
+        // Orient ring randomly but nicely (facing outwards from grid center)
+        const normal = center.clone().normalize();
+        shockMesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), normal);
+        shockMesh.position.copy(center);
+
+        this.parentGroup.add(shockMesh);
+        this.shockwaves.push({
+            mesh: shockMesh,
+            maxScale: 35.0, // Large dramatic expander
+            lifetime: 0.7,
+            initialLifetime: 0.7,
         });
     }
 
@@ -223,11 +356,12 @@ export class VFXManager {
                 (ring.material as THREE.Material).dispose();
                 return false;
             }
-            const scale = 1.0 + (1.0 - ring.userData.lifetime) * 5;
+            const scaleSpeed = ring.userData.speed || 5.0;
+            const scale = 1.0 + (1.0 - ring.userData.lifetime) * scaleSpeed;
             ring.scale.set(scale, scale, scale);
             (ring.material as THREE.MeshBasicMaterial).opacity = ring.userData.lifetime;
             return true;
-        })
+        });
 
         // Update capture explosions (Three.js Points)
         this.captureExplosions = this.captureExplosions.filter(exp => {
@@ -244,12 +378,9 @@ export class VFXManager {
             const ratio = exp.lifetime / exp.initialLifetime;
 
             for (let i = 0; i < velocities.length; i++) {
-                // Apply drag
-                velocities[i].multiplyScalar(Math.max(0.92, 1 - 0.15 * deltaTime));
-                // Minor gravity drift
-                velocities[i].y -= 6 * deltaTime;
+                velocities[i].multiplyScalar(Math.max(0.91, 1 - 0.18 * deltaTime)); // drag
+                velocities[i].y -= 5 * deltaTime; // minor gravity drift
 
-                // Update particle positions
                 positions[i * 3] += velocities[i].x * deltaTime;
                 positions[i * 3 + 1] += velocities[i].y * deltaTime;
                 positions[i * 3 + 2] += velocities[i].z * deltaTime;
@@ -257,15 +388,64 @@ export class VFXManager {
 
             exp.geometry.attributes.position.needsUpdate = true;
 
-            // Fade opacity and shrink size over lifetime
             exp.material.opacity = ratio;
-            exp.material.size = 0.35 * Math.sin(ratio * Math.PI / 2); // organic scale-down
+            exp.material.size = 0.4 * Math.sin(ratio * Math.PI / 2); // organic scale-down
+
+            return true;
+        });
+
+        // Update shockwaves
+        this.shockwaves = this.shockwaves.filter(sw => {
+            sw.lifetime -= deltaTime;
+            if (sw.lifetime <= 0) {
+                this.parentGroup.remove(sw.mesh);
+                sw.mesh.geometry.dispose();
+                (sw.mesh.material as THREE.Material).dispose();
+                return false;
+            }
+
+            const progress = 1.0 - (sw.lifetime / sw.initialLifetime);
+            // Quick linear or quad out expander
+            const currentScale = 1.0 + progress * sw.maxScale;
+            sw.mesh.scale.set(currentScale, currentScale, currentScale);
+            
+            const mat = sw.mesh.material as THREE.MeshBasicMaterial;
+            mat.opacity = Math.max(0, 1.0 - progress);
+            return true;
+        });
+
+        // Update filling face animations (with beautiful elastic out spring bounce!)
+        this.fillingFaces = this.fillingFaces.filter(ff => {
+            ff.lifetime -= deltaTime;
+            if (ff.lifetime <= 0) {
+                this.parentGroup.remove(ff.mesh);
+                ff.mesh.geometry.dispose();
+                (ff.mesh.material as THREE.Material).dispose();
+                return false;
+            }
+
+            const progress = 1.0 - (ff.lifetime / ff.initialLifetime);
+            
+            // Elastic out spring bounce equation
+            // f(t) = -2^(-8t) * sin((8t - 0.75) * 2pi/3) + 1
+            const elasticScale = -Math.pow(2, -8 * progress) * Math.sin((progress * 8 - 0.75) * ((2 * Math.PI) / 3)) + 1;
+            
+            ff.mesh.scale.set(elasticScale, elasticScale, elasticScale);
+
+            const mat = ff.mesh.material as THREE.MeshStandardMaterial;
+            // Fade emissive intensity down to a steady 0.3 matching normal claims
+            mat.emissiveIntensity = THREE.MathUtils.lerp(3.5, 0.3, progress);
+            mat.opacity = THREE.MathUtils.lerp(0.95, 0.8, progress);
 
             return true;
         });
     }
     
-    public isAnimationRunning = () => this.isShattering || this.captureExplosions.length > 0;
+    public isAnimationRunning = () => 
+        this.isShattering || 
+        this.captureExplosions.length > 0 || 
+        this.shockwaves.length > 0 || 
+        this.fillingFaces.length > 0;
 
 
     public destroy() {
@@ -285,9 +465,27 @@ export class VFXManager {
             exp.material.dispose();
         });
 
+        this.shockwaves.forEach(sw => {
+            if (this.parentGroup.children.includes(sw.mesh)) {
+                this.parentGroup.remove(sw.mesh);
+            }
+            sw.mesh.geometry.dispose();
+            (sw.mesh.material as THREE.Material).dispose();
+        });
+
+        this.fillingFaces.forEach(ff => {
+            if (this.parentGroup.children.includes(ff.mesh)) {
+                this.parentGroup.remove(ff.mesh);
+            }
+            ff.mesh.geometry.dispose();
+            (ff.mesh.material as THREE.Material).dispose();
+        });
+
         this.shatterParticles = [];
         this.moveRings = [];
         this.captureExplosions = [];
+        this.shockwaves = [];
+        this.fillingFaces = [];
         this.shatterMaterial.dispose();
     }
 }

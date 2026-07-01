@@ -1,6 +1,6 @@
 import * as THREE from 'three'
 
-export type ThemeType = 'neon' | 'monochrome' | 'cyber' | 'sunset' | 'cosmic' | 'toxic' | 'frost'
+export type ThemeType = 'neon' | 'monochrome' | 'cyber' | 'sunset' | 'cosmic' | 'toxic' | 'frost' | 'vaporwave' | 'inferno' | 'sakura' | 'retro_future'
 
 export type EffectType = 'bloom' | 'hyper_glow' | 'crt' | 'aberration'
 
@@ -154,5 +154,73 @@ export const THEMES: Record<ThemeType, ThemeConfig> = {
     hudText: '#e2e8f0',
     themeAccent: '#a5f3fc',
     accentRgb: '165, 243, 252',
+  },
+  vaporwave: {
+    name: 'Vaporwave',
+    player1Color: 0xff71ce, // hot pink
+    player1ColorDark: 0xb90076,
+    player2Color: 0x01cdfe, // bright cyan/teal
+    player2ColorDark: 0x008fa7,
+    unclaimedPathColor: 0x05ffa1, // vaporwave green
+    gridColor: 0x3d1a4d, // deep dark purple grid
+    gridPointsColor: 0xb967ff, // neon purple points
+    backgroundColor: 0x1a052e, // retro dark purple bg
+    starColor: 0xfff3a0, // warm sunset yellow stars
+    hudBg: 'rgba(26, 5, 46, 0.85)',
+    hudBorder: 'rgba(255, 113, 206, 0.4)',
+    hudText: '#ff71ce',
+    themeAccent: '#ff71ce',
+    accentRgb: '255, 113, 206',
+  },
+  inferno: {
+    name: 'Inferno',
+    player1Color: 0xff3300, // raging orange-red
+    player1ColorDark: 0x990000,
+    player2Color: 0xffaa00, // molten lava yellow-gold
+    player2ColorDark: 0xb55300,
+    unclaimedPathColor: 0x7a2200,
+    gridColor: 0x2b0700,
+    gridPointsColor: 0xff5500,
+    backgroundColor: 0x0c0100, // pitch black volcanic bg
+    starColor: 0xffaa00,
+    hudBg: 'rgba(15, 1, 0, 0.85)',
+    hudBorder: 'rgba(255, 51, 0, 0.4)',
+    hudText: '#ff3300',
+    themeAccent: '#ff3300',
+    accentRgb: '255, 51, 0',
+  },
+  sakura: {
+    name: 'Sakura',
+    player1Color: 0xffb7c5, // sakura blossom pink
+    player1ColorDark: 0xe07a8c,
+    player2Color: 0xffffff, // pure white petal
+    player2ColorDark: 0xcccccc,
+    unclaimedPathColor: 0xffe3e8, // extremely soft pink
+    gridColor: 0x42262d, // dark wood branch
+    gridPointsColor: 0xffc0cb, // glowing pink points
+    backgroundColor: 0x1a0f12, // midnight cherry orchard
+    starColor: 0xffe3e8,
+    hudBg: 'rgba(26, 15, 18, 0.85)',
+    hudBorder: 'rgba(255, 183, 197, 0.4)',
+    hudText: '#ffb7c5',
+    themeAccent: '#ffb7c5',
+    accentRgb: '255, 183, 197',
+  },
+  retro_future: {
+    name: 'Outrun',
+    player1Color: 0xfd0061, // neon magenta
+    player1ColorDark: 0xa1003c,
+    player2Color: 0x2a00ff, // neon laser blue
+    player2ColorDark: 0x0e0085,
+    unclaimedPathColor: 0x00f0ff, // neon cyan
+    gridColor: 0x1e0029, // dark synthwave grid
+    gridPointsColor: 0xbd00ff, // purple points
+    backgroundColor: 0x05000a,
+    starColor: 0xfd0061,
+    hudBg: 'rgba(5, 0, 10, 0.85)',
+    hudBorder: 'rgba(253, 0, 97, 0.4)',
+    hudText: '#fd0061',
+    themeAccent: '#fd0061',
+    accentRgb: '253, 0, 97',
   },
 }

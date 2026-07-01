@@ -577,6 +577,7 @@ export class GameLogicController {
             this.turnEndFocusPoint.copy(center)
             
             this.vfxManager.triggerShatterEffect(newSolidGeometries, center);
+            this.vfxManager.triggerFillingAnimation(newSolidGeometries, player.material.color);
             this.vfxManager.triggerCaptureExplosion(center, player.material.color);
             
             this.shatterState = { geometries: newSolidGeometries, player: player, focusPoint: center };

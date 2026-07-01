@@ -1,5 +1,7 @@
 
 import React, { useState, useMemo, Fragment, useRef, useEffect } from 'react'
+import { motion, AnimatePresence } from 'motion/react'
+import { Sliders, Palette, X, Sparkles, Check } from 'lucide-react'
 import { Score, TurnInfo } from './components/TronCaptureGame'
 import StartScreen from './components/StartScreen'
 import * as C from './game/config'
@@ -112,6 +114,7 @@ function App() {
   const [gameMode, setGameMode] = useState<GameMode>('pvp')
   const [theme, setTheme] = useState<ThemeType>('neon')
   const [effect, setEffect] = useState<EffectType>('bloom')
+  const [showVisualSettings, setShowVisualSettings] = useState(false)
   const [level, setLevel] = useState<Level>(levelMap.icosahedron)
   const [scores, setScores] = useState<{ player1: Score, player2: Score }>(initialScores)
   const [showHelp, setShowHelp] = useState(false)
@@ -289,73 +292,146 @@ function App() {
           <>
             <GameContainer level={level} gameMode={gameMode} theme={theme} effect={effect} scoreCallbacks={scoreCallbacks} setTurnInfo={setTurnInfo} setDebugInfo={setDebugInfo} />
 
-            {/* Visuals Control Panel */}
+            {/* Togglable Visuals Button */}
             <div className="absolute top-6 left-6 pointer-events-auto z-50 flex flex-col space-y-3">
-                <div className="sci-fi-panel p-4 px-5 skew-corners shadow-lg w-80">
-                    <div className="sci-fi-panel-content space-y-4">
-                        {/* Theme Section */}
-                        <div className="space-y-2">
-                            <div className="flex justify-between items-center">
-                                <span className="text-xs font-mono tracking-wider opacity-85 uppercase text-blue-200">System Theme:</span>
-                                <span className="text-[10px] font-mono text-cyan-400 bg-cyan-950/60 px-1.5 py-0.5 rounded border border-cyan-800/40">THEME_ACTIVE</span>
-                            </div>
-                            <div className="grid grid-cols-3 gap-1.5">
-                                {(Object.keys(THEMES) as ThemeType[]).map((t) => {
-                                    const active = theme === t;
-                                    return (
-                                        <button
-                                            key={t}
-                                            onClick={() => setTheme(t)}
-                                            className={`px-2 py-1 text-[11px] font-mono uppercase rounded transition-all duration-150 border ${
-                                                active
-                                                    ? 'font-bold border-white/20'
-                                                    : 'border-transparent hover:bg-white/5 text-gray-300'
-                                            }`}
-                                            style={active ? { backgroundColor: THEMES[t].themeAccent, color: '#000000', borderColor: THEMES[t].themeAccent } : {}}
-                                        >
-                                            {THEMES[t].name}
-                                        </button>
-                                    );
-                                })}
-                            </div>
-                        </div>
-
-                        {/* Separator line */}
-                        <div className="h-[1px] bg-white/10" />
-
-                        {/* VFX/Post processing Section */}
-                        <div className="space-y-2">
-                            <div className="flex justify-between items-center">
-                                <span className="text-xs font-mono tracking-wider opacity-85 uppercase text-blue-200">VFX Engine:</span>
-                                <span className="text-[10px] font-mono text-pink-400 bg-pink-950/60 px-1.5 py-0.5 rounded border border-pink-800/40">POST_PROC</span>
-                            </div>
-                            <div className="grid grid-cols-2 gap-1.5">
-                                {EFFECTS.map((eff) => {
-                                    const active = effect === eff.id;
-                                    return (
-                                        <button
-                                            key={eff.id}
-                                            onClick={() => setEffect(eff.id)}
-                                            className={`px-2.5 py-1.5 text-left rounded transition-all duration-150 border flex flex-col justify-center ${
-                                                active
-                                                    ? 'bg-white/15 border-white/40'
-                                                    : 'border-transparent hover:bg-white/5 hover:border-white/10'
-                                            }`}
-                                        >
-                                            <span className={`text-[11px] font-mono uppercase font-bold tracking-wide ${active ? 'text-white' : 'text-gray-300'}`}>
-                                                {eff.name}
-                                            </span>
-                                            <span className="text-[9px] text-gray-400 font-mono leading-none mt-0.5">
-                                                {eff.description}
-                                            </span>
-                                        </button>
-                                    );
-                                })}
-                            </div>
-                        </div>
-                    </div>
-                </div>
+                <button
+                    onClick={() => setShowVisualSettings(true)}
+                    className="sci-fi-panel p-3 px-4 shadow-lg hover:brightness-125 hover:scale-105 transition-all duration-200 pointer-events-auto cursor-pointer flex items-center space-x-2 text-xs uppercase"
+                    style={{
+                        borderColor: THEMES[theme].hudBorder,
+                        background: THEMES[theme].hudBg,
+                        color: THEMES[theme].themeAccent,
+                    }}
+                >
+                    <Sliders className="w-4 h-4" style={{ color: THEMES[theme].themeAccent }} />
+                    <span className="font-mono tracking-widest font-bold">Vibe Engine</span>
+                </button>
             </div>
+
+            {/* Togglable Settings Overlay */}
+            <AnimatePresence>
+                {showVisualSettings && (
+                    <>
+                        {/* Backdrop with Blur */}
+                        <motion.div
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            onClick={() => setShowVisualSettings(false)}
+                            className="fixed inset-0 bg-black/70 backdrop-blur-md z-[100] pointer-events-auto cursor-pointer"
+                        />
+
+                        {/* Animated Side Drawer */}
+                        <motion.div
+                            initial={{ x: '-100%', opacity: 0 }}
+                            animate={{ x: 0, opacity: 1 }}
+                            exit={{ x: '-100%', opacity: 0 }}
+                            transition={{ type: 'spring', damping: 25, stiffness: 220 }}
+                            className="fixed top-0 left-0 h-full w-85 shadow-2xl z-[101] pointer-events-auto flex flex-col font-mono"
+                            style={{
+                                background: `${THEMES[theme].hudBg}`,
+                                borderRight: `1px solid ${THEMES[theme].hudBorder}`,
+                                backdropFilter: 'blur(12px)',
+                            }}
+                        >
+                            {/* Drawer Header */}
+                            <div className="p-6 border-b border-white/10 flex justify-between items-center" style={{ background: `rgba(${THEMES[theme].accentRgb}, 0.08)` }}>
+                                <div className="flex items-center space-x-2">
+                                    <Palette className="w-5 h-5" style={{ color: THEMES[theme].themeAccent }} />
+                                    <h3 className="text-sm font-bold tracking-widest uppercase" style={{ color: THEMES[theme].themeAccent }}>VIBE ENGINE</h3>
+                                </div>
+                                <button
+                                    onClick={() => setShowVisualSettings(false)}
+                                    className="p-1 hover:bg-white/10 rounded transition-all text-gray-400 hover:text-white cursor-pointer"
+                                >
+                                    <X className="w-5 h-5" />
+                                </button>
+                            </div>
+
+                            {/* Drawer Content */}
+                            <div className="flex-1 overflow-y-auto p-6 space-y-6 scrollbar-thin">
+                                {/* System Theme Section */}
+                                <div className="space-y-3">
+                                    <div className="flex justify-between items-center border-b border-white/5 pb-2">
+                                        <span className="text-xs tracking-wider opacity-85 uppercase" style={{ color: THEMES[theme].themeAccent }}>System Theme</span>
+                                        <span className="text-[10px] px-1.5 py-0.5 rounded border uppercase" style={{ color: THEMES[theme].themeAccent, borderColor: THEMES[theme].hudBorder, background: 'rgba(0,0,0,0.3)' }}>
+                                            {THEMES[theme].name}
+                                        </span>
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-2">
+                                        {(Object.keys(THEMES) as ThemeType[]).map((t) => {
+                                            const active = theme === t;
+                                            return (
+                                                <button
+                                                    key={t}
+                                                    onClick={() => setTheme(t)}
+                                                    className={`px-3 py-2.5 text-[11px] uppercase rounded transition-all duration-150 border text-left flex items-center justify-between cursor-pointer ${
+                                                        active
+                                                            ? 'border-white/20 font-bold'
+                                                            : 'border-transparent hover:bg-white/5 text-gray-400 hover:text-gray-200'
+                                                    }`}
+                                                    style={active ? { backgroundColor: THEMES[t].themeAccent, color: '#000000', borderColor: THEMES[t].themeAccent } : {}}
+                                                >
+                                                    <span className="truncate mr-1">{THEMES[t].name}</span>
+                                                    {active && <Check className="w-3.5 h-3.5 shrink-0" style={{ strokeWidth: 3 }} />}
+                                                </button>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+
+                                {/* Divider */}
+                                <div className="h-[1px] bg-white/5" />
+
+                                {/* VFX Post Processing Section */}
+                                <div className="space-y-3">
+                                    <div className="flex justify-between items-center border-b border-white/5 pb-2">
+                                        <span className="text-xs tracking-wider opacity-85 uppercase" style={{ color: THEMES[theme].themeAccent }}>VFX Engine</span>
+                                        <span className="text-[10px] px-1.5 py-0.5 rounded border uppercase" style={{ color: THEMES[theme].themeAccent, borderColor: THEMES[theme].hudBorder, background: 'rgba(0,0,0,0.3)' }}>
+                                            {effect}
+                                        </span>
+                                    </div>
+                                    <div className="space-y-2">
+                                        {EFFECTS.map((eff) => {
+                                            const active = effect === eff.id;
+                                            return (
+                                                <button
+                                                    key={eff.id}
+                                                    onClick={() => setEffect(eff.id)}
+                                                    className={`w-full p-3 text-left rounded transition-all duration-150 border flex items-start space-x-3 cursor-pointer ${
+                                                        active
+                                                            ? 'bg-white/10'
+                                                            : 'border-transparent hover:bg-white/5 hover:border-white/10 text-gray-400 hover:text-gray-200'
+                                                    }`}
+                                                    style={active ? { borderColor: THEMES[theme].themeAccent } : {}}
+                                                >
+                                                    <div className={`mt-0.5 p-1 rounded ${active ? 'bg-white/15' : 'bg-white/5'}`} style={active ? { color: THEMES[theme].themeAccent } : {}}>
+                                                        <Sparkles className="w-3.5 h-3.5" />
+                                                    </div>
+                                                    <div className="flex-1 min-w-0">
+                                                        <div className={`text-xs uppercase font-bold tracking-wide ${active ? 'text-white' : 'text-gray-300'}`}>
+                                                            {eff.name}
+                                                        </div>
+                                                        <div className="text-[10px] text-gray-400 mt-1 leading-normal font-sans">
+                                                            {eff.description}
+                                                        </div>
+                                                    </div>
+                                                    {active && <Check className="w-4 h-4 self-center shrink-0" style={{ color: THEMES[theme].themeAccent }} />}
+                                                </button>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Drawer Footer */}
+                            <div className="p-6 border-t border-white/5 bg-black/40 text-center">
+                                <span className="text-[9px] text-gray-500 uppercase tracking-widest">TRANSMISSION OK // VIBE ENGINE</span>
+                            </div>
+                        </motion.div>
+                    </>
+                )}
+            </AnimatePresence>
 
             {/* Top Turn Info Display */}
             <div className="absolute top-6 left-1/2 -translate-x-1/2 w-full max-w-md pointer-events-none">

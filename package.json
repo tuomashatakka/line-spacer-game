@@ -11,6 +11,8 @@
   "dependencies": {
     "@google/genai": "^2.10.0",
     "event-kit": "^2.5.3",
+    "lucide-react": "^1.23.0",
+    "motion": "^12.42.2",
     "react": "^19.1.1",
     "react-dom": "^19.1.1",
     "three": "^0.179.1"
